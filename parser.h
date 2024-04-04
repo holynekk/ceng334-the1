@@ -77,5 +77,3 @@ void pretty_print(parsed_input *input);
 }
 #endif
 #endif //PARSER_H
-
-

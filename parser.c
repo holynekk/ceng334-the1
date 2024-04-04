@@ -79,7 +79,7 @@ void write_buffer(parsed_input* input, char *buffer, int is_command, int is_pipe
     }
     if ( input->inputs[input_index].type == INPUT_TYPE_PIPELINE ) {
         input->inputs[input_index].data.pline.commands[current_command].args[arg_index] =
-                calloc(strlen(buffer), sizeof(char));
+                (char *)calloc(strlen(buffer), sizeof(char));
         strcpy(input->inputs[input_index].data.pline.commands[current_command].args[arg_index],
                buffer);
         input->inputs[input_index].data.pline.commands[current_command].args[arg_index+1] = NULL;
@@ -88,7 +88,7 @@ void write_buffer(parsed_input* input, char *buffer, int is_command, int is_pipe
     }
     else {
         input->inputs[input_index].type = INPUT_TYPE_COMMAND;
-        input->inputs[input_index].data.cmd.args[arg_index] = calloc(strlen(buffer), sizeof(char));
+        input->inputs[input_index].data.cmd.args[arg_index] = (char *)calloc(strlen(buffer), sizeof(char));
         strcpy(input->inputs[input_index].data.cmd.args[arg_index], buffer);
         input->inputs[input_index].data.cmd.args[arg_index+1] = NULL;
         if ( is_command )
@@ -103,7 +103,6 @@ int parse_line(char *line, parsed_input *input) {
     // Initialize parsed_input
     memset(input, 0, sizeof(parsed_input));
     input->separator = SEPARATOR_NONE;
-    printf("%s\n", line);
     current_char = line;
 
     int is_quote = 0;
@@ -318,6 +317,8 @@ int parse_line(char *line, parsed_input *input) {
                         return 0;
                     }
                     convert_to_pipeline(input);
+
+                    is_pipeline = 1;
                 }
                 buffer[buffer_index] = '\0';
                 write_buffer(input, buffer, 1, is_pipeline);
@@ -340,6 +341,8 @@ int parse_line(char *line, parsed_input *input) {
                         return 0;
                     }
                     convert_to_pipeline(input);
+                    
+                    is_pipeline = 1;
                 }
                 buffer[buffer_index] = '\0';
                 write_buffer(input, buffer, 1, is_pipeline);
@@ -409,6 +412,8 @@ int parse_line(char *line, parsed_input *input) {
                         return 0;
                     }
                     convert_to_pipeline(input);
+
+                    is_pipeline = 1;
                 }
                 buffer[buffer_index] = '\0';
                 write_buffer(input, buffer, 0, is_pipeline);
@@ -431,6 +436,8 @@ int parse_line(char *line, parsed_input *input) {
                         return 0;
                     }
                     convert_to_pipeline(input);
+
+                    is_pipeline = 1;
                 }
                 buffer[buffer_index] = '\0';
                 write_buffer(input, buffer, 0, is_pipeline);
@@ -575,4 +582,3 @@ void pretty_print(parsed_input *input) {
         }
     }
 }
-

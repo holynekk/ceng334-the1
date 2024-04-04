@@ -18,9 +18,14 @@ int main(void) {
         parse_line(line, p_input);
         pretty_print(p_input);
 
-        if (p_input->separator == 0 && p_input->num_inputs == 1 && strcmp(*(p_input->inputs[0].data.cmd.args), "quit") == 0) {
-            return 0;
+        if (p_input->separator == 0 && p_input->num_inputs == 1) {
+            if (strcmp(*(p_input->inputs[0].data.cmd.args), "quit") == 0) {
+                return 0;
+            } else {
+                // TODO: Single command execution.
+            }
         }
+        printf("/> ");
     }
     free(line);
     free(p_input);
@@ -34,8 +39,8 @@ int main(void) {
 // cat input.txt | grep "log" | wc -c ; ls -al /dev
 // ls -l | tr /a-z/ /A-Z/ , echo "Done."
 // cat input.txt | grep "log" | wc -c , ls -al /dev
-// (ls -l | tr /a-z/ /A-Z/ ; echo "Done.")
-// (ls -l | tr /a-z/ /A-Z/ , echo "Done.")
+// (ls -l | tr /a-z/ /A-Z/ ; echo "Done.") -- There is a problem here!!!!!!
+// (ls -l | tr /a-z/ /A-Z/ , echo "Done.") -- There is a problem here!!!!!!
 // (ls -l | tr /a-z/ /A-Z/ , echo "Done.") | (cat ; echo "Hello"; cat input.txt) | cat | (wc -c , wc -l)
 // (cat input.txt | grep "c") | (tr /a-z/ /A-Z/ ; ls -al /dev) | (cat | wc -l , cat , grep "A")
 // quit
