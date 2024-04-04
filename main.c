@@ -11,18 +11,25 @@
 
 int main(void) {
     char *line = malloc(BUF_SIZE * sizeof(char));
+    int status;
+    pid_t pid;
+
     parsed_input *p_input = (parsed_input *) malloc(sizeof(parsed_input));
     printf("/> ");
-
     while (fgets(line, BUF_SIZE, stdin)) {
         parse_line(line, p_input);
-        pretty_print(p_input);
-
+        // pretty_print(p_input);
         if (p_input->separator == 0 && p_input->num_inputs == 1) {
             if (strcmp(*(p_input->inputs[0].data.cmd.args), "quit") == 0) {
                 return 0;
             } else {
-                // TODO: Single command execution.
+                pid = fork();
+                if (pid != 0) {
+                    waitpid(pid, &status, 0);
+                } else {
+                    execvp(p_input->inputs[0].data.cmd.args[0], p_input->inputs[0].data.cmd.args);
+                    exit(0);
+                }
             }
         }
         printf("/> ");
