@@ -3,22 +3,25 @@
 #include <string.h>
 #include <unistd.h>
 #include <poll.h>
+#include <stdbool.h>
 #include <sys/wait.h>
 
 #include "parser.h"
 
-void execute_single_command(command cmd) {
+void execute_single_command(command cmd, bool isParalel) {
     int status;
     pid_t pid = fork();
-    if (pid != 0) {
-        waitpid(pid, &status, 0);
-    } else {
+    if (pid == 0) {
         execvp(cmd.args[0], cmd.args);
         exit(0);
+        
+    }
+    if (!isParalel) {
+        waitpid(pid, &status, 0);
     }
 }
 
-void execute_inner_pipeline(command * commands, int n) {
+void execute_inner_pipeline(command * commands, int n, bool is_paralel) {
     pid_t pid;
     int ** pipes = (int **) malloc((n-1) * sizeof(int *)), status;
 
@@ -50,8 +53,10 @@ void execute_inner_pipeline(command * commands, int n) {
         close(pipes[k][1]);
     }
 
-    for (int i = 0; i < n; i++) {
-        wait(&status);
+    if (!is_paralel) {
+        for (int i = 0; i < n; i++) {
+            wait(&status);
+        }
     }
 
     free(pipes);
@@ -100,10 +105,26 @@ void execute_pipeline(single_input * pipeline_inputs, int n) {
 void execute_sequential(single_input * pipeline_inputs, int n) {
     for (int i = 0; i < n; i++) {
         if (pipeline_inputs[i].type == INPUT_TYPE_COMMAND) {
-            execute_single_command(pipeline_inputs[i].data.cmd);
+            execute_single_command(pipeline_inputs[i].data.cmd, false);
         } else if (pipeline_inputs[i].type == INPUT_TYPE_PIPELINE) {
-            execute_inner_pipeline(pipeline_inputs[i].data.pline.commands, pipeline_inputs[i].data.pline.num_commands);
+            execute_inner_pipeline(pipeline_inputs[i].data.pline.commands, pipeline_inputs[i].data.pline.num_commands, false);
         }
+    }
+}
+
+void execute_paralel(single_input * pipeline_inputs, int n) {
+    int wait_count = 0, status;
+    for (int i = 0; i < n; i++) {
+        if (pipeline_inputs[i].type == INPUT_TYPE_COMMAND) {
+            wait_count++;
+            execute_single_command(pipeline_inputs[i].data.cmd, true);
+        } else if (pipeline_inputs[i].type == INPUT_TYPE_PIPELINE) {
+            wait_count += pipeline_inputs[i].data.pline.num_commands;
+            execute_inner_pipeline(pipeline_inputs[i].data.pline.commands, pipeline_inputs[i].data.pline.num_commands, true);
+        }
+    }
+    for (int i = 0; i < wait_count; i++) {
+        wait(&status);
     }
 }
 
@@ -124,7 +145,7 @@ int main(void) {
                 /*
                 Single command execution.
                 */
-                execute_single_command(p_input->inputs[0].data.cmd);
+                execute_single_command(p_input->inputs[0].data.cmd, false);
             }
         } else if (p_input->separator == SEPARATOR_PIPE) {
             /*
@@ -136,6 +157,11 @@ int main(void) {
             Sequential execution.
             */
             execute_sequential(p_input->inputs, p_input->num_inputs);
+        } else if (p_input->separator == SEPARATOR_PARA) {
+            /*
+            Paralel execution.
+            */
+            execute_paralel(p_input->inputs, p_input->num_inputs);
         }
         printf("/> ");
     }
@@ -150,6 +176,7 @@ int main(void) {
 // ls -l ; ls -al /dev
 // ls -l | tr /a-z/ /A-Z/ ; echo "Done."
 // cat input.txt | grep "log" | wc -c ; ls -al /dev
+// echo "1" , echo "2"
 // ls -l | tr /a-z/ /A-Z/ , echo "Done."
 // cat input.txt | grep "log" | wc -c , ls -al /dev
 // (ls -l | tr /a-z/ /A-Z/ ; echo "Done.") -- There is a problem here!!!!!!
