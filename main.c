@@ -128,9 +128,45 @@ void execute_paralel(single_input * pipeline_inputs, int n) {
     }
 }
 
+void execute_subshell(char * subshell_string) {
+    int status;
+    pid_t pid = fork();
+
+    parsed_input *parsed_subshell = (parsed_input *) malloc(sizeof(parsed_input));
+    parse_line(subshell_string, parsed_subshell);
+
+    if (pid == 0) {
+        if (parsed_subshell->separator == SEPARATOR_NONE && parsed_subshell->num_inputs == 1) {
+            if (parsed_subshell->inputs[0].type == INPUT_TYPE_COMMAND) {
+                /*
+                Single command execution.
+                */
+                execute_single_command(parsed_subshell->inputs[0].data.cmd, false);
+            }
+        } else if (parsed_subshell->separator == SEPARATOR_PIPE) {
+            /*
+            Pipeline execution.
+            */
+            execute_pipeline(parsed_subshell->inputs, parsed_subshell->num_inputs);
+        } else if (parsed_subshell->separator == SEPARATOR_SEQ) {
+            /*
+            Sequential execution.
+            */
+            execute_sequential(parsed_subshell->inputs, parsed_subshell->num_inputs);
+        } else if (parsed_subshell->separator == SEPARATOR_PARA) {
+            /*
+            Paralel execution.
+            */
+            execute_paralel(parsed_subshell->inputs, parsed_subshell->num_inputs);
+        }
+        exit(0);
+    } else {
+        wait(&status);
+    }
+}
+
 int main(void) {
     char *line = malloc(INPUT_BUFFER_SIZE * sizeof(char));
-
     parsed_input *p_input = (parsed_input *) malloc(sizeof(parsed_input));
     printf("/> ");
     while (fgets(line, INPUT_BUFFER_SIZE, stdin)) {
@@ -139,13 +175,20 @@ int main(void) {
         // printf("Num of inputs: %d\n", p_input->num_inputs);
         // pretty_print(p_input);
         if (p_input->separator == SEPARATOR_NONE && p_input->num_inputs == 1) {
-            if (strcmp(*(p_input->inputs[0].data.cmd.args), "quit") == 0) {
-                return 0;
-            } else {
+            if (p_input->inputs[0].type == INPUT_TYPE_SUBSHELL) {
                 /*
-                Single command execution.
+                Subshell execution.
                 */
-                execute_single_command(p_input->inputs[0].data.cmd, false);
+                execute_subshell(p_input->inputs[0].data.subshell);
+            } else if (p_input->inputs[0].type == INPUT_TYPE_COMMAND) {
+                if (strcmp(*(p_input->inputs[0].data.cmd.args), "quit") == 0) {
+                    return 0;
+                } else {
+                    /*
+                    Single command execution.
+                    */
+                    execute_single_command(p_input->inputs[0].data.cmd, false);
+                }
             }
         } else if (p_input->separator == SEPARATOR_PIPE) {
             /*
@@ -179,8 +222,9 @@ int main(void) {
 // echo "1" , echo "2"
 // ls -l | tr /a-z/ /A-Z/ , echo "Done."
 // cat input.txt | grep "log" | wc -c , ls -al /dev
-// (ls -l | tr /a-z/ /A-Z/ ; echo "Done.") -- There is a problem here!!!!!!
-// (ls -l | tr /a-z/ /A-Z/ , echo "Done.") -- There is a problem here!!!!!!
+// (echo "1." ; echo "2." ; echo "3.")
+// (ls -l | tr /a-z/ /A-Z/ ; echo "Done.")
+// (ls -l | tr /a-z/ /A-Z/ , echo "Done.")
 // (ls -l | tr /a-z/ /A-Z/ , echo "Done.") | (cat ; echo "Hello"; cat input.txt) | cat | (wc -c , wc -l)
 // (cat input.txt | grep "c") | (tr /a-z/ /A-Z/ ; ls -al /dev) | (cat | wc -l , cat , grep "A")
 // quit
