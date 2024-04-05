@@ -19,10 +19,13 @@ int main(void) {
     while (fgets(line, BUF_SIZE, stdin)) {
         parse_line(line, p_input);
         // pretty_print(p_input);
-        if (p_input->separator == 0 && p_input->num_inputs == 1) {
+        if (p_input->separator == SEPARATOR_NONE && p_input->num_inputs == 1) {
             if (strcmp(*(p_input->inputs[0].data.cmd.args), "quit") == 0) {
                 return 0;
             } else {
+                /*
+                Single command execution.
+                */
                 pid = fork();
                 if (pid != 0) {
                     waitpid(pid, &status, 0);
@@ -31,6 +34,53 @@ int main(void) {
                     exit(0);
                 }
             }
+        } else if (p_input->separator == SEPARATOR_PIPE) {
+            /*
+            Pipeline execution.
+            */
+            int n = p_input->num_inputs;
+            // int (*pipes)[2] = malloc(sizeof(int[n][2]));
+            int ** pipes = (int **) malloc((n-1) * sizeof(int *));
+            for (int i = 0; i < n-1; i++) {
+                pipes[i] = (int*) malloc(2 * sizeof(int));
+                pipe(pipes[i]);
+            }
+
+            // int * pipes = (int *) malloc((n-1) * sizeof(int));
+            // printf("parent pid: %d\n", getpid());
+            close(pipes[0][0]);
+            close(pipes[n-1][1]);
+            for (int i = 0; i < n; i++) {
+                // printf("PARENT LOOP %d\n", getpid());
+                pid = fork();
+                if (pid == 0) {
+                    single_input input_val = p_input->inputs[i];
+                    printf("Child pid: %d\n", getpid());
+                    if (i > 0) {
+                        // printf("read pipe\n");
+                        dup2(pipes[i-1][0], 0);
+                    }
+                    if (i < n-1) {
+                        // printf("write pipe\n");
+                        dup2(pipes[i][1], 1);
+                    }
+                    execvp(p_input->inputs[i].data.cmd.args[0], p_input->inputs[i].data.cmd.args);
+                    return 0;
+                }
+            }
+            // printf("aaaaaaaaaaaaaaaaaaaaaaaaa\n");
+            pid_t pidddd;
+            for (int i = 0; i < n-1; i++) {
+                close(pipes[i][0]);
+                close(pipes[i][1]);
+            }
+            for (int i = 0; i < n; i++) {
+                // printf("paaarent!!\n");
+                // waitpid(pid, &status, 0);
+                pidddd = wait(&status);
+                printf("Received child pid: %d\n", pidddd);
+            }
+            free(pipes);
         }
         printf("/> ");
     }
