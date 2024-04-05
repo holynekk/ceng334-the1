@@ -39,46 +39,36 @@ int main(void) {
             Pipeline execution.
             */
             int n = p_input->num_inputs;
-            // int (*pipes)[2] = malloc(sizeof(int[n][2]));
             int ** pipes = (int **) malloc((n-1) * sizeof(int *));
             for (int i = 0; i < n-1; i++) {
                 pipes[i] = (int*) malloc(2 * sizeof(int));
                 pipe(pipes[i]);
             }
-
-            // int * pipes = (int *) malloc((n-1) * sizeof(int));
-            // printf("parent pid: %d\n", getpid());
-            close(pipes[0][0]);
-            close(pipes[n-1][1]);
             for (int i = 0; i < n; i++) {
-                // printf("PARENT LOOP %d\n", getpid());
                 pid = fork();
                 if (pid == 0) {
                     single_input input_val = p_input->inputs[i];
-                    printf("Child pid: %d\n", getpid());
                     if (i > 0) {
-                        // printf("read pipe\n");
                         dup2(pipes[i-1][0], 0);
                     }
                     if (i < n-1) {
-                        // printf("write pipe\n");
                         dup2(pipes[i][1], 1);
                     }
+                    for (int k = 0; k < n-1; k++) {
+                        close(pipes[k][0]);
+                        close(pipes[k][1]);
+                    }
                     execvp(p_input->inputs[i].data.cmd.args[0], p_input->inputs[i].data.cmd.args);
-                    return 0;
+                    exit(0);
                 }
             }
-            // printf("aaaaaaaaaaaaaaaaaaaaaaaaa\n");
             pid_t pidddd;
-            for (int i = 0; i < n-1; i++) {
-                close(pipes[i][0]);
-                close(pipes[i][1]);
+            for (int k = 0; k < n-1; k++) {
+                close(pipes[k][0]);
+                close(pipes[k][1]);
             }
             for (int i = 0; i < n; i++) {
-                // printf("paaarent!!\n");
-                // waitpid(pid, &status, 0);
                 pidddd = wait(&status);
-                printf("Received child pid: %d\n", pidddd);
             }
             free(pipes);
         }
