@@ -7,17 +7,54 @@
 
 #include "parser.h"
 
-#define BUF_SIZE 128
-
-void execute_single_command(single_input * pipeline_inputs) {
+void execute_single_command(command cmd) {
     int status;
     pid_t pid = fork();
     if (pid != 0) {
         waitpid(pid, &status, 0);
     } else {
-        execvp(pipeline_inputs[0].data.cmd.args[0], pipeline_inputs[0].data.cmd.args);
+        execvp(cmd.args[0], cmd.args);
         exit(0);
     }
+}
+
+void execute_inner_pipeline(command * commands, int n) {
+    pid_t pid;
+    int ** pipes = (int **) malloc((n-1) * sizeof(int *)), status;
+
+    for (int i = 0; i < n-1; i++) {
+        pipes[i] = (int*) malloc(2 * sizeof(int));
+        pipe(pipes[i]);
+    }
+
+    for (int i = 0; i < n; i++) {
+        pid = fork();
+        if (pid == 0) {
+            if (i > 0) {
+                dup2(pipes[i-1][0], 0);
+            }
+            if (i < n-1) {
+                dup2(pipes[i][1], 1);
+            }
+            for (int k = 0; k < n-1; k++) {
+                close(pipes[k][0]);
+                close(pipes[k][1]);
+            }
+            execvp(commands[i].args[0], commands[i].args);
+            exit(0);
+        }
+    }
+
+    for (int k = 0; k < n-1; k++) {
+        close(pipes[k][0]);
+        close(pipes[k][1]);
+    }
+
+    for (int i = 0; i < n; i++) {
+        wait(&status);
+    }
+
+    free(pipes);
 }
 
 void execute_pipeline(single_input * pipeline_inputs, int n) {
@@ -60,15 +97,25 @@ void execute_pipeline(single_input * pipeline_inputs, int n) {
     free(pipes);
 }
 
+void execute_sequential(single_input * pipeline_inputs, int n) {
+    for (int i = 0; i < n; i++) {
+        if (pipeline_inputs[i].type == INPUT_TYPE_COMMAND) {
+            execute_single_command(pipeline_inputs[i].data.cmd);
+        } else if (pipeline_inputs[i].type == INPUT_TYPE_PIPELINE) {
+            execute_inner_pipeline(pipeline_inputs[i].data.pline.commands, pipeline_inputs[i].data.pline.num_commands);
+        }
+    }
+}
+
 int main(void) {
-    char *line = malloc(BUF_SIZE * sizeof(char));
+    char *line = malloc(INPUT_BUFFER_SIZE * sizeof(char));
 
     parsed_input *p_input = (parsed_input *) malloc(sizeof(parsed_input));
     printf("/> ");
-    while (fgets(line, BUF_SIZE, stdin)) {
+    while (fgets(line, INPUT_BUFFER_SIZE, stdin)) {
         parse_line(line, p_input);
-        printf("Seperator: %d\n", p_input->separator);
-        printf("Num of inputs: %d\n", p_input->num_inputs);
+        // printf("Seperator: %d\n", p_input->separator);
+        // printf("Num of inputs: %d\n", p_input->num_inputs);
         // pretty_print(p_input);
         if (p_input->separator == SEPARATOR_NONE && p_input->num_inputs == 1) {
             if (strcmp(*(p_input->inputs[0].data.cmd.args), "quit") == 0) {
@@ -77,7 +124,7 @@ int main(void) {
                 /*
                 Single command execution.
                 */
-                execute_single_command(p_input->inputs);
+                execute_single_command(p_input->inputs[0].data.cmd);
             }
         } else if (p_input->separator == SEPARATOR_PIPE) {
             /*
@@ -85,7 +132,10 @@ int main(void) {
             */
             execute_pipeline(p_input->inputs, p_input->num_inputs);
         } else if (p_input->separator == SEPARATOR_SEQ) {
-            printf("Hello!\n");
+            /*
+            Sequential execution.
+            */
+            execute_sequential(p_input->inputs, p_input->num_inputs);
         }
         printf("/> ");
     }
