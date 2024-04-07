@@ -8,6 +8,8 @@
 
 #include "parser.h"
 
+void execute_subshell(char * subshell_string);
+
 void execute_single_command(command cmd, bool isParalel) {
     int status;
     pid_t pid = fork();
@@ -70,7 +72,6 @@ void execute_pipeline(single_input * pipeline_inputs, int n) {
         pipes[i] = (int*) malloc(2 * sizeof(int));
         pipe(pipes[i]);
     }
-
     for (int i = 0; i < n; i++) {
         pid = fork();
         if (pid == 0) {
@@ -85,7 +86,12 @@ void execute_pipeline(single_input * pipeline_inputs, int n) {
                 close(pipes[k][0]);
                 close(pipes[k][1]);
             }
-            execvp(pipeline_inputs[i].data.cmd.args[0], pipeline_inputs[i].data.cmd.args);
+            if (pipeline_inputs[i].type == INPUT_TYPE_COMMAND) {
+                execvp(pipeline_inputs[i].data.cmd.args[0], pipeline_inputs[i].data.cmd.args);
+            } else if (pipeline_inputs[i].type == INPUT_TYPE_SUBSHELL) {
+                execute_subshell(pipeline_inputs[i].data.subshell);
+            }
+            
             exit(0);
         }
     }
@@ -171,9 +177,6 @@ int main(void) {
     printf("/> ");
     while (fgets(line, INPUT_BUFFER_SIZE, stdin)) {
         parse_line(line, p_input);
-        // printf("Seperator: %d\n", p_input->separator);
-        // printf("Num of inputs: %d\n", p_input->num_inputs);
-        // pretty_print(p_input);
         if (p_input->separator == SEPARATOR_NONE && p_input->num_inputs == 1) {
             if (p_input->inputs[0].type == INPUT_TYPE_SUBSHELL) {
                 /*
@@ -228,3 +231,18 @@ int main(void) {
 // (ls -l | tr /a-z/ /A-Z/ , echo "Done.") | (cat ; echo "Hello"; cat input.txt) | cat | (wc -c , wc -l)
 // (cat input.txt | grep "c") | (tr /a-z/ /A-Z/ ; ls -al /dev) | (cat | wc -l , cat , grep "A")
 // quit
+
+// -- Tester --
+// Testcase0:  ls -l                                                                  -- OK
+// Testcase1:  ls -l ; ls -al                                                         -- OK
+// Testcase2:  echo 'Hello'                                                           -- OK
+// Testcase3:  ls -l | tr /a-z/ /A-Z/                                                 -- OK
+// Testcase4:  ls -l , ls -al                                                         -- OK
+// Testcase5:  ls -l ; echo 'Hello'                                                   -- OK
+// Testcase6:  (ls -l ; echo 'Hello') | grep x | tr /a-g/ /A-G/                       -- OK
+// Testcase7:  (ls -l /usr/bin | grep a ) | (cat ; echo Hello ; ls -al /usr/lib)      -- OK
+// Testcase8:  (ls -l /usr/bin | grep x) | ( tr /a-c/ /A-C/ , echo done)              -- FAILED
+// Testcase9:  (ls -l /usr/bin | grep a ) | (cat ; echo Hello ; ls -al /usr/lib)      -- FAILED
+// Testcase10: ls -al /usr/bin | tr /a-l/ /A-L/ | ( grep A , grep B )                 -- FAILED
+// Testcase11: ls -al /usr/bin | tr /a-l/ /A-L/ | ( grep A , grep B , wc -l )         -- FAILED
+// Testcase12: ls -al /usr/bin | tr /a-l/ /A-L/ | ( grep A , grep B , wc -l , wc -c ) -- FAILED
