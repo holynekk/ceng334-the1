@@ -230,6 +230,10 @@ int main(void) {
 // (ls -l | tr /a-z/ /A-Z/ , echo "Done.")
 // (ls -l | tr /a-z/ /A-Z/ , echo "Done.") | (cat ; echo "Hello"; cat input.txt) | cat | (wc -c , wc -l)
 // (cat input.txt | grep "c") | (tr /a-z/ /A-Z/ ; ls -al /dev) | (cat | wc -l , cat , grep "A")
+// (ls -l | grep a ) | (cat ; echo Hello ; ls -al)
+// (ls -l /usr/bin | grep x) | (tr /a-c/ /A-C/; echo done)
+// (ls -l /usr/bin | grep x) | tr /a-c/ /A-C/
+// ls -al | tr /a-l/ /A-L/ | ( grep A , grep B , wc -l , wc -c )
 // quit
 
 // -- Tester --
@@ -240,8 +244,8 @@ int main(void) {
 // Testcase4:  ls -l , ls -al                                                         -- OK
 // Testcase5:  ls -l ; echo 'Hello'                                                   -- OK
 // Testcase6:  (ls -l ; echo 'Hello') | grep x | tr /a-g/ /A-G/                       -- OK
-// Testcase7:  (ls -l /usr/bin | grep a ) | (cat ; echo Hello ; ls -al /usr/lib)      -- OK
-// Testcase8:  (ls -l /usr/bin | grep x) | ( tr /a-c/ /A-C/ , echo done)              -- FAILED
+// Testcase7:  (ls -l /usr/bin | grep x) | ( tr /a-c/ /A-C/ , echo done)              -- FAILED
+// Testcase8:  (ls -l /usr/bin | grep x) | ( tr /a-z/ /A-Z/ , echo done) | wc -l      -- FAILED
 // Testcase9:  (ls -l /usr/bin | grep a ) | (cat ; echo Hello ; ls -al /usr/lib)      -- FAILED
 // Testcase10: ls -al /usr/bin | tr /a-l/ /A-L/ | ( grep A , grep B )                 -- FAILED
 // Testcase11: ls -al /usr/bin | tr /a-l/ /A-L/ | ( grep A , grep B , wc -l )         -- FAILED
