@@ -1,12 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <poll.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <sys/wait.h>
+#include <string.h>
 
 #include "parser.h"
+
+#define P_BUF_SIZE 1024
 
 void execute_subshell(char * subshell_string);
 
@@ -16,7 +17,6 @@ void execute_single_command(command cmd, bool isParalel) {
     if (pid == 0) {
         execvp(cmd.args[0], cmd.args);
         exit(0);
-        
     }
     if (!isParalel) {
         waitpid(pid, &status, 0);
@@ -136,7 +136,7 @@ void execute_paralel(single_input * pipeline_inputs, int n) {
 }
 
 void execute_subshell(char * subshell_string) {
-    int status;
+    int status, wait_count = 0;
     pid_t pid = fork();
 
     parsed_input *parsed_subshell = (parsed_input *) malloc(sizeof(parsed_input));
@@ -165,11 +165,76 @@ void execute_subshell(char * subshell_string) {
             Paralel execution.
             */
             execute_paralel(parsed_subshell->inputs, parsed_subshell->num_inputs);
+
+            // TODO: Implement repeater!
+
+        //     int n = parsed_subshell->num_inputs;
+        //     int ** pipes = (int **) malloc(n * sizeof(int *)), status;
+
+        //     for (int i = 0; i < n; i++) {
+        //         pipes[i] = (int*) malloc(2 * sizeof(int));
+        //         pipe(pipes[i]);
+        //     }
+        //     for (int i = 0; i < n; i++) {
+        //         if (parsed_subshell->inputs[i].type == INPUT_TYPE_COMMAND) {
+        //             wait_count++;
+        //         } else if (parsed_subshell->inputs[i].type == INPUT_TYPE_PIPELINE) {
+        //             wait_count += parsed_subshell->inputs[i].data.pline.num_commands;
+        //         }
+        //         // printf("Subshell child: %d\n", getpid());
+        //         pid_t child_pid = fork();
+        //         if (child_pid == 0) {
+        //             dup2(pipes[i][0], 0);
+        //             if (parsed_subshell->inputs[i].type == INPUT_TYPE_COMMAND) {
+        //                 // printf("Child got executed: %d\n", getpid());
+        //                 execute_single_command(parsed_subshell->inputs[i].data.cmd, true);
+        //             } else if (parsed_subshell->inputs[i].type == INPUT_TYPE_PIPELINE) {
+        //                 execute_inner_pipeline(parsed_subshell->inputs[i].data.pline.commands, parsed_subshell->inputs[i].data.pline.num_commands, true);
+        //             }
+        //             // for (int k = 0; k < n; k++) {
+        //             //     close(pipes[k][0]);
+        //             //     close(pipes[k][1]);
+        //             // }
+        //             // printf("Child exiting: %d\n", getpid());
+        //             exit(0);
+        //         }
+        //     }
+        //     pid_t repeater_pid = fork();
+        //     size_t contentSize = 1;
+        //     char buffer[P_BUF_SIZE];
+        //     char *content = malloc(P_BUF_SIZE * sizeof(char));
+        //     content[0] = '\0';
+        //     if (repeater_pid == 0) {
+        //         while (fgets(buffer, P_BUF_SIZE, stdin)) {
+        //             char *old = content;
+        //             contentSize += strlen(buffer);
+        //             content = realloc(content, contentSize);
+        //             strcat(content, buffer);
+        //         }
+        //         for (int i = 0; i < n; i++) {
+        //             write(pipes[i][1], content, contentSize);
+        //         }
+        //         // printf("Repeater exiting: %d\n", getpid());
+        //         exit(0);
+        //     }
+        //     for (int k = 0; k < n; k++) {
+        //         close(pipes[k][0]);
+        //         close(pipes[k][1]);
+        //     }
         }
-        exit(0);
-    } else {
-        wait(&status);
+        // for (int i = 0; i < 5; i++) {
+        //     pid_t aaa = wait(&status);
+        //     // printf("Recieved: %d\n", aaa);
+        // }
+        // // (ls -l /usr/lib | grep x) | ( tr /a-z/ /A-Z/ , echo done)
+        // // (echo "a" , echo "b")
+        // // printf("Subshell child exiting: %d\n", getpid());
+        // exit(0);
     }
+    // else {
+        pid_t bumbum = wait(&status);
+        // printf("Recieved: %d\n", bumbum);
+    // }
 }
 
 int main(void) {
@@ -214,45 +279,5 @@ int main(void) {
     }
     free(line);
     free(p_input);
-
     return 0;
 }
-
-// ls -l | tr /a-z/ /A-Z/
-// cat input.txt | grep "log" | wc -c
-// ls -l ; ls -al /dev
-// ls -l | tr /a-z/ /A-Z/ ; echo "Done."
-// cat input.txt | grep "log" | wc -c ; ls -al /dev
-// echo "1" , echo "2"
-// ls -l | tr /a-z/ /A-Z/ , echo "Done."
-// cat input.txt | grep "log" | wc -c , ls -al /dev
-// (echo "1." ; echo "2." ; echo "3.")
-// (ls -l | tr /a-z/ /A-Z/ ; echo "Done.")
-// (ls -l | tr /a-z/ /A-Z/ , echo "Done.")
-// (ls -l | tr /a-z/ /A-Z/ , echo "Done.") | (cat ; echo "Hello"; cat input.txt) | cat | (wc -c , wc -l)
-// (cat input.txt | grep "c") | (tr /a-z/ /A-Z/ ; ls -al /dev) | (cat | wc -l , cat , grep "A")
-// (ls -l | grep a ) | (cat ; echo Hello ; ls -al)
-// (ls -l | grep x) | ( tr /a-c/ /A-C/ , echo done)
-// (ls -l /usr/bin | grep x) | (tr /a-c/ /A-C/; echo done)
-// (ls -l /usr/bin | grep x) | tr /a-c/ /A-C/
-// ls -al | tr /a-l/ /A-L/ | ( grep A , grep B , wc -l , wc -c )
-// quit
-
-// -- Tester --
-// Testcase0:  ls -l                                                                  -- OK
-// Testcase1:  ls -l ; ls -al                                                         -- OK
-// Testcase2:  echo 'Hello'                                                           -- OK
-// Testcase3:  ls -l | tr /a-z/ /A-Z/                                                 -- OK
-// Testcase4:  ls -l , ls -al                                                         -- OK
-// Testcase5:  ls -l ; echo 'Hello'                                                   -- OK
-// Testcase6:  (ls -l ; echo 'Hello') | grep x | tr /a-g/ /A-G/                       -- OK
-// Testcase7:  (ls -l /usr/bin | grep x) | ( tr /a-c/ /A-C/ , echo done)              -- FAILED
-// Testcase8:  (ls -l /usr/bin | grep x) | ( tr /a-z/ /A-Z/ , echo done) | wc -l      -- FAILED
-// Testcase9:  (ls -l /usr/bin | grep a ) | (cat ; echo Hello ; ls -al /usr/lib)      -- OK
-// Testcase10: ls -al /usr/bin | tr /a-l/ /A-L/ | ( grep A , grep B )                 -- FAILED
-// Testcase11: ls -al /usr/bin | tr /a-l/ /A-L/ | ( grep A , grep B , wc -l )         -- FAILED
-// Testcase12: ls -al /usr/bin | tr /a-l/ /A-L/ | ( grep A , grep B , wc -l , wc -c ) -- FAILED
-// Testcase13: ls -l ; echo 'Hello' ; echo Welp ; ls -al /usr/lib                     --OK
-// Testcase14: (ls -l /usr/lib | grep t ) | (cat ; echo Hello ; ls -al /usr/lib)      --OK
-// Testcase15: (ls -l /usr/lib | grep s ) | (cat ; echo Hello ; ls -al /usr/lib)      --OK
-// Testcase16: (ls -l /usr/lib | grep h ) | (cat ; echo Hello ; ls -al /usr/lib)      --OK
